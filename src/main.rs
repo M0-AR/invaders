@@ -1,6 +1,8 @@
+use invaders::{frame, render};
 use rusty_audio::Audio;
 use std::error::Error;
-use std::io;
+use std::{io, thread};
+use std::sync::mpsc;
 use crossterm::{terminal, ExecutableCommand};
 use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
@@ -25,6 +27,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal::enable_raw_mode()?; // '?' means crash if there is an error
     stdout.execute(EnterAlternateScreen)?; // AlternateScreen: same as vim screen when enter it
     stdout.execute(Hide)?; // Hide cursor 
+
+    // Render loop in a separate thread 
+    let (render_tx, render_rx) = mpsc::channel();
+    let render_handle = thread::spawn(move || {
+        let mut last_frame = frame::new_frame();
+        let mut stdout = io::stdout();
+        render::render(&mut stdout, &last_frame, &last_frame, true);
+        loop {
+            let curr_frame = match render_rx.recv() {
+                Ok(x) => x,
+                Err(_) => break,
+            };
+            render::render(&mut stdout, &last_frame, &curr_frame, false);
+            last_frame = curr_frame;
+        }
+    });
 
     // Game Loop
     'gameloop: loop {
