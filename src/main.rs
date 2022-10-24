@@ -1,3 +1,4 @@
+use invaders::frame::new_frame;
 use invaders::{frame, render};
 use rusty_audio::Audio;
 use std::error::Error;
@@ -46,6 +47,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Game Loop
     'gameloop: loop {
+        // Per-frame init
+        let curr_frame = new_frame();
+
         // Input
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
@@ -58,9 +62,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                } 
             }
         }
+
+        // Draw & render
+        let _ = render_tx.send(curr_frame);
+        thread::sleep(Duration::from_millis(1));
     }
 
     // Cleanup
+    drop(render_tx);
+    render_handle.join().unwrap();
     audio.wait();
     stdout.execute(Show)?;
     stdout.execute(LeaveAlternateScreen)?;
